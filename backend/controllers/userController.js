@@ -29,7 +29,7 @@ exports.registerUser = async (req, res) => {
         const csr = forge.pki.createCertificationRequest();
         csr.publicKey = keys.publicKey;
         csr.setSubject([{ name: 'commonName', value: name }]);
-        csr.sign(keys.privateKey);
+        csr.sign(keys.privateKey, forge.md.sha256.create()); // Usar SHA-256 para firmar la CSR
 
         // Firmar el CSR para crear el certificado
         const caData = await Certificado.findOne(); // Recuperar CA desde MongoDB
@@ -43,18 +43,20 @@ exports.registerUser = async (req, res) => {
 
         // Generar un número de serie único
         const generateSerialNumber = () => {
-            return Math.floor(Math.random() * 1e16).toString(16).toUpperCase(); // Genera un número hexadecimal único
+            return Math.floor(Math.random() * 1e16).toString(16).toUpperCase();
         };
 
         const cert = forge.pki.createCertificate();
-        cert.serialNumber = generateSerialNumber(); // Usa un número de serie único
+        cert.serialNumber = generateSerialNumber();
         cert.publicKey = csr.publicKey;
         cert.setSubject(csr.subject.attributes);
         cert.setIssuer(caCert.subject.attributes);
         cert.validity.notBefore = new Date();
         cert.validity.notAfter = new Date();
-        cert.validity.notAfter.setFullYear(cert.validity.notBefore.getFullYear() + 100); // Esto es para que el certificado expire en 100 años
-        cert.sign(caPrivateKey);
+        cert.validity.notAfter.setFullYear(cert.validity.notBefore.getFullYear() + 100); // Certificado válido por 100 años
+
+        // Firmar el certificado con la clave privada de la CA usando SHA-256
+        cert.sign(caPrivateKey, forge.md.sha256.create());
 
         // Convertir el certificado y la clave privada del usuario a formato PEM
         const pemCert = forge.pki.certificateToPem(cert);
@@ -63,20 +65,21 @@ exports.registerUser = async (req, res) => {
         // Almacenar el certificado y clave privada en el usuario en MongoDB
         user.certificate = pemCert;
         user.privateKey = pemKey;
-        
+
         await user.save();
 
         // Crear y enviar JWT
         const payload = { userid: user.id };
         const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1m' });
 
-        res.json({ token, cert: pemCert, key: pemKey }); // Devolver el certificado y clave privada junto con el token
+        res.json({ token, cert: pemCert, key: pemKey });
 
     } catch (error) {
         console.error(error);
         res.status(500).send('Error en el servidor');
     }
 };
+
 
 // Iniciar sesión
 exports.loginUser = async (req, res) => {

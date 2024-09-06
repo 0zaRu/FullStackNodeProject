@@ -1,0 +1,33 @@
+# Generar la clave privada para la CA
+openssl genpkey -algorithm RSA -out ca.key
+
+# Generar el certificado autofirmado de la CA con SHA-256
+openssl req -x509 -new -nodes -key ca.key -sha256 -days 36500 \
+    -subj "/C=ES/ST=Murcia/L=Murcia/O=Empresota/OU=Mono/CN=ca" \
+    -out ca.crt
+
+
+# Generar la clave privada para el servidor
+openssl genpkey -algorithm RSA -out server.key
+
+# Generar la solicitud de firma de certificado (CSR) para el servidor
+openssl req -new -key server.key \
+    -subj "/C=ES/ST=Murcia/L=Murcia/O=Empresota/OU=Mono/CN=server" \
+    -out server.csr
+
+# Firmar la CSR del servidor con la CA para crear el certificado del servidor
+openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial \
+    -out server.crt -days 36500 -sha256
+
+
+# Generar la clave privada para el sensor simulado
+openssl genpkey -algorithm RSA -out simulated_sensor.key
+
+# Generar la solicitud de firma de certificado (CSR) para el sensor simulado
+openssl req -new -key simulated_sensor.key \
+    -subj "/C=ES/ST=Murcia/L=Murcia/O=Empresota/OU=Mono/CN=simulated_sensor" \
+    -out simulated_sensor.csr
+
+# Firmar la CSR del sensor simulado con la CA para crear el certificado
+openssl x509 -req -in simulated_sensor.csr -CA ca.crt -CAkey ca.key -CAcreateserial \
+    -out simulated_sensor.crt -days 36500 -sha256
