@@ -1,25 +1,18 @@
+// models/userModel.js
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
 const userSchema = new mongoose.Schema({
-    name: {
-        type: String,
-        required: true,
-        unique: true,
-    },
-    email: {
-        type: String,
-        unique: true,
-        required: true,
-    },
-    password: {
-        type: String,
-        required: true,
-    }
+    name: { type: String, required: true, unique: true },
+    email: { type: String, unique: true, required: true },
+    password: { type: String, required: true },
+    certificate: { type: String },
+    privateKey: { type: String },
 });
 
+
 // Middleware para encriptar la contraseña antes de guardarla en la base de datos
-userSchema.pre('save', async function(next) {
+userSchema.pre('save', async function (next) {
     if (!this.isModified('password')) {
         next();
     }

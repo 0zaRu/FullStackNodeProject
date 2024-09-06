@@ -1,6 +1,43 @@
-version: '3.1'
+version: '3.8'
 
 services:
+
+  # ======================================================= SIMULATED MQTT SENSOR ==============================================================
+  mqtt-sensor:
+    build:
+      context: ./mqtt/simulated_sensor
+    container_name: mqtt-simulated-sensor
+    volumes:
+      - ./mqtt/simulated_sensor:/mqtt/simulated_sensor
+    depends_on:
+      - mosquitto
+    networks:
+      - my-network
+      
+  # =============================================== MQTT BROKER AND WEB INTERFACE (mosquitto) ==================================================
+  mosquitto:
+    image: eclipse-mosquitto:latest
+    container_name: mosquitto
+    ports:
+      - "1883:1883"  # Puerto MQTT
+      - "9001:9001"  # Puerto WebSockets (opcional si planeas usar websockets)
+      - "8883:8883"  # Puerto para MQTT con TLS
+    volumes:
+      - ./mqtt/mosquitto/config:/mosquitto/config
+      - ./mqtt/mosquitto/data:/mosquitto/data
+      - ./mqtt/mosquitto/log:/mosquitto/log
+    networks:
+      - my-network
+
+  mqtt-explorer:
+    image: smeagolworms4/mqtt-explorer:latest
+    container_name: mqtt-explorer
+    ports:
+      - "8082:4000"  # Puerto para acceder a la interfaz gráfica
+    networks:
+      - my-network
+
+  # ===================================================== MONGODB AND MONGODB EXPRESS ==========================================================
   mongodb:
     image: mongo:latest
     container_name: mongodb
@@ -11,6 +48,8 @@ services:
       MONGO_INITDB_ROOT_PASSWORD: 1234
     volumes:
       - ./mongo/mongodb_data:/data/db
+    networks:
+      - my-network
 
   mongodb-express:
     image: mongo-express:latest
@@ -26,7 +65,10 @@ services:
       ME_CONFIG_MONGODB_ADMINPASSWORD: 1234
     depends_on:
       - mongodb
+    networks:
+      - my-network
 
+  # ======================================================== BACKEND AND FRONTEND ============================================================
   backend:
     build:
       dockerfile: ./backend/Dockerfile
@@ -39,6 +81,8 @@ services:
       MONGO_URI: mongodb://root:1234@mongodb:27017
     depends_on:
       - mongodb
+    networks:
+      - my-network
 
   frontend:
     build:
@@ -50,6 +94,9 @@ services:
       - "8080:8080"
     depends_on:
       - backend
+    networks:
+      - my-network
 
-volumes:
-  mongodb_data:
+networks:
+  my-network:
+    external: true

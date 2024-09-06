@@ -1,1 +1,5 @@
 **/mongodb_data/
+**/mosquitto/*
+!**/mosquitto/config
+**/mosquitto/config/certs/*
+**/simulated_sensor/certs/*

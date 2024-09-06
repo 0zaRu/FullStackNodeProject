@@ -1,0 +1,16 @@
+version: '3.1'
+
+services:
+  # =============================================== SIMULATED MQTT SENSOR ==============================================================
+  mqtt-sensor:
+    build:
+      context: .
+    container_name: mqtt-simulated-sensor
+    volumes:
+      - .:/mqtt/simulated_sensor
+    networks:
+      - my-network
+
+networks:
+  my-network:
+    external: true

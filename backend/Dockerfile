@@ -16,5 +16,8 @@ COPY ./backend .
 # Exponer el puerto de la aplicación
 EXPOSE 3000
 
+# Comando para ejecutar la aplicación en modo desarrollo con nodemon
+CMD ["npm", "run", "dev"]
+
 # Comando para ejecutar la aplicación
-CMD ["node", "./index.js"]
+# CMD ["node", "./index.js"]

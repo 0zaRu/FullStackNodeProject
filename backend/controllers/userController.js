@@ -1,35 +1,82 @@
+// controllers/userController.js
 const User = require('../models/userModel');
-const user = require('../models/userModel');
+const Certificado = require('../models/certificadoModel'); // Esquema de CA en MongoDB
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const forge = require('node-forge');
 
-// Registrar usuario
+// Registrar usuario y generar certificado
 exports.registerUser = async (req, res) => {
-    const {name, email, password} = req.body;
+    const { name, email, password } = req.body;
 
     try {
-        let user = await User.findOne({email});
+        let user = await User.findOne({ email });
         if (user) {
-            return res.status(400).json({msg: 'El usuario ya existe'});
+            return res.status(400).json({ msg: 'El usuario ya existe' });
         }
 
+        // Crear nuevo usuario
         user = new User({
             name,
             email,
             password,
         });
 
+        // Generar el par de claves para el usuario
+        const keys = forge.pki.rsa.generateKeyPair(2048);
+
+        // Crear una CSR (Certificate Signing Request)
+        const csr = forge.pki.createCertificationRequest();
+        csr.publicKey = keys.publicKey;
+        csr.setSubject([{ name: 'commonName', value: name }]);
+        csr.sign(keys.privateKey);
+
+        // Firmar el CSR para crear el certificado
+        const caData = await Certificado.findOne(); // Recuperar CA desde MongoDB
+        if (!caData) {
+            return res.status(500).json({ msg: 'CA no encontrada en la base de datos' });
+        }
+
+        // Parsear el certificado y la clave de la CA
+        const caCert = forge.pki.certificateFromPem(caData.caCert);
+        const caPrivateKey = forge.pki.privateKeyFromPem(caData.caKey);
+
+        // Generar un número de serie único
+        const generateSerialNumber = () => {
+            return Math.floor(Math.random() * 1e16).toString(16).toUpperCase(); // Genera un número hexadecimal único
+        };
+
+        const cert = forge.pki.createCertificate();
+        cert.serialNumber = generateSerialNumber(); // Usa un número de serie único
+        cert.publicKey = csr.publicKey;
+        cert.setSubject(csr.subject.attributes);
+        cert.setIssuer(caCert.subject.attributes);
+        cert.validity.notBefore = new Date();
+        cert.validity.notAfter = new Date();
+        cert.validity.notAfter.setFullYear(cert.validity.notBefore.getFullYear() + 100); // Esto es para que el certificado expire en 100 años
+        cert.sign(caPrivateKey);
+
+        // Convertir el certificado y la clave privada del usuario a formato PEM
+        const pemCert = forge.pki.certificateToPem(cert);
+        const pemKey = forge.pki.privateKeyToPem(keys.privateKey);
+
+        // Almacenar el certificado y clave privada en el usuario en MongoDB
+        user.certificate = pemCert;
+        user.privateKey = pemKey;
+        
         await user.save();
 
+        // Crear y enviar JWT
         const payload = { userid: user.id };
-        const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1m'});
+        const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1m' });
 
-        res.json({token});
-    
+        res.json({ token, cert: pemCert, key: pemKey }); // Devolver el certificado y clave privada junto con el token
+
     } catch (error) {
+        console.error(error);
         res.status(500).send('Error en el servidor');
     }
-}
+};
 
 // Iniciar sesión
 exports.loginUser = async (req, res) => {
