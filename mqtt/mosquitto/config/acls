@@ -1,0 +1,7 @@
+user admin
+topic write users/admin/data
+topic deny #
+
+user Alberto
+topic write users/Alberto/data
+topic deny #

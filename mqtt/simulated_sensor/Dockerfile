@@ -2,7 +2,7 @@
 FROM python:3.9-slim
 
 RUN pip install paho-mqtt
-RUN pip install pymongo
+RUN pip install requests
 
 RUN mkdir /mqtt
 RUN mkdir /mqtt/simulated_sensor

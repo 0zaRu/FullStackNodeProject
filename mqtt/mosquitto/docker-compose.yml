@@ -2,15 +2,17 @@ version: '3.8'
 
 services:
   mosquitto:
-    image: eclipse-mosquitto:latest
+    build:
+      context: .  # Asegúrate de que el contexto sea el directorio donde está tu Dockerfile
     container_name: mosquitto
     ports:
       - "1883:1883"  # Puerto MQTT
       - "9001:9001"  # Puerto WebSockets (opcional si planeas usar websockets)
+      - "8883:8883"  # Puerto para MQTT con TLS
     volumes:
-      - ./mosquitto/config:/mosquitto/config
-      - ./mosquitto/data:/mosquitto/data
-      - ./mosquitto/log:/mosquitto/log
+      - ./config:/mosquitto/config
+      - ./data:/mosquitto/data
+      - ./log:/mosquitto/log
 
   mqtt-explorer:
     image: smeagolworms4/mqtt-explorer:latest

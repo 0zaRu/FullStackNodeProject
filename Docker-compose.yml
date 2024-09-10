@@ -16,7 +16,8 @@ services:
       
   # =============================================== MQTT BROKER AND WEB INTERFACE (mosquitto) ==================================================
   mosquitto:
-    image: eclipse-mosquitto:latest
+    build:
+      context: ./mqtt/mosquitto
     container_name: mosquitto
     ports:
       - "1883:1883"  # Puerto MQTT

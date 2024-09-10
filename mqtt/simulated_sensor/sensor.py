@@ -2,69 +2,54 @@ import paho.mqtt.client as mqtt
 import time
 import json
 import random
-import pymongo
-import os
+import requests
+import tempfile
 
 # Nombre del usuario (puedes ajustar esto según tu lógica)
-username = "admin"
-mongo_inDocker = False
+username = "Alberto"
+password = "1234"
 
-# Configuración de MongoDB
-mongo_uri_local = "mongodb://root:1234@localhost:27017"
-mongo_uri_docker = "mongodb://root:1234@mongodb:27017"
-db_name = "test"
-users_coll = "users"
-certificados_coll = "certificados"
+
+exec_inDocker = True # True si estás intentando esciribr o leer desde un docker en la red de mosquitto
+
+backend_local = "http://localhost:3000"
+backend_docker = "http://backend:3000"
 
 # Configuración del broker MQTT
-mqtt_inDocker = True
 broker_local = "localhost"
 broker_docker = "mosquitto"
 port = 8883
-topic = f"{username}/simulated_sensor/data"
+# topic = f"users/{username}/data"
+topic = "users/admin/data"
 
-# Crear archivos temporales para almacenar certificados y claves
-def create_temp_files(ca_cert, client_cert, client_key):
-    temp_dir = "/tmp/mqtt_certs"
-    if not os.path.exists(temp_dir):
-        os.makedirs(temp_dir)
-    
-    ca_cert_path = os.path.join(temp_dir, "ca_cert.pem")
-    client_cert_path = os.path.join(temp_dir, "client_cert.pem")
-    client_key_path = os.path.join(temp_dir, "client_key.pem")
-    
-    with open(ca_cert_path, 'w') as f:
-        f.write(ca_cert)
-    
-    with open(client_cert_path, 'w') as f:
-        f.write(client_cert)
-    
-    with open(client_key_path, 'w') as f:
-        f.write(client_key)
-    
-    return ca_cert_path, client_cert_path, client_key_path
+# Obtener certificados desde el endpoint
+def get_certificates(username, password):
+    url = f"{backend_docker if exec_inDocker else backend_local}/get-certs-from-credentials"
+    payload = {
+        "name": username,
+        "password": password
+    }
 
-# Eliminar archivos temporales
-def delete_temp_files(*file_paths):
-    for file_path in file_paths:
-        try:
-            os.remove(file_path)
-        except Exception as e:
-            print(f"Error al eliminar el archivo {file_path}: {e}")
+    urlCA = f"{backend_docker if exec_inDocker else backend_local}/get-ca"
 
-# Conectarse a MongoDB y obtener certificados
-def get_certificates(username):    
-    client = pymongo.MongoClient(mongo_uri_local if not mongo_inDocker else mongo_uri_docker)
+    try:
+        response = requests.get(url, json=payload)
+        response.raise_for_status()  # Lanza una excepción si la solicitud falla
 
-    # Buscar el usuario por su nombre (Common Name - CN)
-    user = client[db_name][users_coll].find_one({"name": username})
-    certificado = client[db_name][certificados_coll].find_one()
-    
-    if user and "certificate" in user and "privateKey" in user and "caCert" in certificado:
-        return certificado["caCert"], user["certificate"], user["privateKey"]
-    
-    else:
-        raise ValueError("No se encontraron certificados para el usuario")
+        responseCA = requests.get(urlCA)
+        responseCA.raise_for_status() 
+
+        data = response.json()
+        dataCA = responseCA.json()
+
+        if "certificate" in data and "privateKey" in data and "caCert" in dataCA:
+            return dataCA["caCert"], data["certificate"], data["privateKey"]
+        else:
+            raise ValueError("Respuesta incompleta del servidor")
+
+    except requests.RequestException as e:
+        print(f"Error al obtener certificados: {e}")
+        raise
 
 # Función para generar datos simulados
 def generate_sensor_data():
@@ -73,32 +58,36 @@ def generate_sensor_data():
         "humidity": random.uniform(30.0, 60.0)
     }
 
-# Obtener los certificados desde MongoDB
+
+# Obtener los certificados desde el endpoint
 try:
-    ca_cert, client_cert, client_key = get_certificates(username)
+    ca_cert, client_cert, client_key = get_certificates(username, password)
 except Exception as e:
     print(f"Error al obtener certificados: {e}")
     exit(1)
 
-# Crear archivos temporales con los certificados
-ca_cert_path, client_cert_path, client_key_path = create_temp_files(ca_cert, client_cert, client_key)
+# Crear archivos temporales para certificados
+def create_temp_file(content):
+    with tempfile.NamedTemporaryFile(delete=False, mode='w') as temp_file:
+        temp_file.write(content)
+        return temp_file.name
 
 # Crear cliente MQTT
 client = mqtt.Client()
 
-# Configurar TLS con los archivos temporales
+# Crear archivos temporales con los certificados
+ca_cert_path = create_temp_file(ca_cert)
+client_cert_path = create_temp_file(client_cert)
+client_key_path = create_temp_file(client_key)
+
+# Configurar TLS usando los archivos temporales
 client.tls_set(ca_cert_path, certfile=client_cert_path, keyfile=client_key_path)
 
 # Conectar al broker
 try:
-    client.connect(broker_local if not mqtt_inDocker else broker_docker, port)
-    
-    # Eliminar archivos temporales después de conectar al broker
-    delete_temp_files(ca_cert_path, client_cert_path, client_key_path)
-    
+    client.connect(broker_docker if exec_inDocker else broker_local, port)
 except Exception as e:
     print(f"Error al conectar al broker: {e}")
-    delete_temp_files(ca_cert_path, client_cert_path, client_key_path)
     exit(1)
 
 # Publicar datos en el topic
@@ -106,5 +95,5 @@ while True:
     data = generate_sensor_data()
     payload = json.dumps(data)
     client.publish(topic, payload)
-    print(f"Publicado: {payload}", flush=True)
-    time.sleep(2)  # Publica cada 2 segundos
+    print(f"Publicado en {topic}: {payload}", flush=True)
+    time.sleep(60)  # Publica cada 2 segundos

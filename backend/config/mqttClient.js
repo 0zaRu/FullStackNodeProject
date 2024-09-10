@@ -6,6 +6,8 @@ const sensorDataController = require('../controllers/sensorDataController');
 
 
 const connectMQTT = async () => {
+  console.log('Eliminada función de conexióna mqtt (config/mqttClient.js)');
+  return;
   try {
     // Recuperar la CA y las claves del servidor desde la base de datos
     const { ca } = await getKeys(); // Usar la función getKeys para obtener la CA

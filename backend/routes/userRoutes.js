@@ -5,8 +5,10 @@ const userController = require('../controllers/userController');
 const authMiddleware = require('../middleware/authMiddleware');
 const certificadoController = require('../controllers/certificadoController');
 
+router.get('/get-certs-from-credentials', userController.getCertsFromCredentials)
 router.post('/register', userController.registerUser);
 router.post('/login', userController.loginUser);
+
 router.get('/main', authMiddleware, userController.getAllUsers);
 
 router.post('/upload-ca', certificadoController.uploadCA);

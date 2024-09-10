@@ -117,3 +117,38 @@ exports.getAllUsers = async (req, res) => {
         res.status(500).send('Error en el servidor');
     }
 }
+
+// Obtener un usuario a partir de un certificado
+exports.getCertsFromCredentials = async (req, res) => {
+    const { name, password } = req.body;
+
+    try {
+        // Buscar el usuario por el nombre
+        const user = await User.findOne({ name });
+        
+        if (!user) {
+            return res.status(404).json({ msg: 'Usuario no encontrado' });
+        }
+
+        // Verificar la contraseña
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
+            return res.status(400).json({ msg: 'Contraseña incorrecta' });
+        }
+
+        // Verificar si el usuario tiene certificado y clave privada
+        if (!user.certificate || !user.privateKey) {
+            return res.status(404).json({ msg: 'Certificado o clave privada no encontrados' });
+        }
+
+        // Enviar el certificado y la clave privada en la respuesta
+        res.json({
+            certificate: user.certificate,
+            privateKey: user.privateKey
+        });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ msg: 'Error en el servidor' });
+    }
+};

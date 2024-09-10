@@ -1,0 +1,25 @@
+[req]
+distinguished_name = req_distinguished_name
+req_extensions = req_ext
+
+[req_distinguished_name]
+countryName = Country Name (2 letter code)
+countryName_default = ES
+stateOrProvinceName = State or Province Name (full name)
+stateOrProvinceName_default = Provincia
+localityName = Locality Name (eg, city)
+localityName_default = Provincia
+organizationName = Organization Name (eg, company)
+organizationName_default = Empresa
+organizationalUnitName = Organizational Unit Name (eg, section)
+organizationalUnitName_default = Trabajador-tipo
+commonName = Common Name (eg, fully qualified host name)
+commonName_default = nombredeCommon
+commonName_max = 64
+
+[req_ext]
+subjectAltName = @alt_names
+
+[alt_names]
+DNS.1 = localhost
+DNS.2 = mosquitto

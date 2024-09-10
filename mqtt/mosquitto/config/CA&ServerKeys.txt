@@ -3,31 +3,42 @@ openssl genpkey -algorithm RSA -out ca.key
 
 # Generar el certificado autofirmado de la CA con SHA-256
 openssl req -x509 -new -nodes -key ca.key -sha256 -days 36500 \
-    -subj "/C=ES/ST=Murcia/L=Murcia/O=Empresota/OU=Mono/CN=ca" \
+    -subj "/C=ES/ST=Salamanca/L=Salamanca/O=AIr Institute/OU=Informático/CN=server" \
     -out ca.crt
 
+# Crear un archivo de configuración para incluir SAN
+echo "[req]
+distinguished_name = req_distinguished_name
+req_extensions = req_ext
+
+[req_distinguished_name]
+countryName = Country Name (2 letter code)
+countryName_default = ES
+stateOrProvinceName = State or Province Name (full name)
+stateOrProvinceName_default = Salamanca
+localityName = Locality Name (eg, city)
+localityName_default = Salamanca
+organizationName = Organization Name (eg, company)
+organizationName_default = AIr Institute
+organizationalUnitName = Organizational Unit Name (eg, section)
+organizationalUnitName_default = Informático
+commonName = Common Name (eg, fully qualified host name)
+commonName_default = server
+commonName_max = 64
+
+[req_ext]
+subjectAltName = @alt_names
+
+[alt_names]
+DNS.1 = localhost
+DNS.2 = mosquitto" > ../openssl-san.cnf
 
 # Generar la clave privada para el servidor
 openssl genpkey -algorithm RSA -out server.key
 
 # Generar la solicitud de firma de certificado (CSR) para el servidor
-openssl req -new -key server.key \
-    -subj "/C=ES/ST=Murcia/L=Murcia/O=Empresota/OU=Mono/CN=server" \
-    -out server.csr
+openssl req -new -key server.key -out server.csr -config ../openssl-san.cnf
 
 # Firmar la CSR del servidor con la CA para crear el certificado del servidor
 openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial \
-    -out server.crt -days 36500 -sha256
-
-
-# Generar la clave privada para el sensor simulado
-openssl genpkey -algorithm RSA -out simulated_sensor.key
-
-# Generar la solicitud de firma de certificado (CSR) para el sensor simulado
-openssl req -new -key simulated_sensor.key \
-    -subj "/C=ES/ST=Murcia/L=Murcia/O=Empresota/OU=Mono/CN=simulated_sensor" \
-    -out simulated_sensor.csr
-
-# Firmar la CSR del sensor simulado con la CA para crear el certificado
-openssl x509 -req -in simulated_sensor.csr -CA ca.crt -CAkey ca.key -CAcreateserial \
-    -out simulated_sensor.crt -days 36500 -sha256
+    -out server.crt -days 36500 -sha256 -extfile ../openssl-san.cnf -extensions req_ext
