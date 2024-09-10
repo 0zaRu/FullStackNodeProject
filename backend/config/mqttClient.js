@@ -2,12 +2,13 @@
 const mqtt = require('mqtt');
 const getKeys = require('./getKeys'); // Importar la función getKeys
 const User = require('../models/userModel');
+const userController = require('../controllers/userController');
 const sensorDataController = require('../controllers/sensorDataController');
 
 
 const connectMQTT = async () => {
-  console.log('Eliminada función de conexióna mqtt (config/mqttClient.js)');
-  return;
+  // console.log('Eliminada función de conexióna mqtt (config/mqttClient.js)');
+  // return;
   try {
     // Recuperar la CA y las claves del servidor desde la base de datos
     const { ca } = await getKeys(); // Usar la función getKeys para obtener la CA
@@ -27,7 +28,7 @@ const connectMQTT = async () => {
       rejectUnauthorized: true,  // Verificar la validez del certificado
       checkServerIdentity: (host, cert) => {
         // Validar el commonName del certificado del servidor
-        if (cert && cert.subject && cert.subject.CN !== 'server') {
+        if (cert && cert.subject && cert.subject.CN !== 'mosquitto') {
           throw new Error('El certificado del servidor no es válido.');
         }
       }
@@ -45,15 +46,28 @@ const connectMQTT = async () => {
       mqttClient = mqtt.connect(options);
     }
 
-    mqttClient.on('connect', () => {
+    mqttClient.on('connect', async () => {
       console.log('Conectado al broker MQTT');
-      mqttClient.subscribe('usr/simulated_sensor/data');  // Suscribirse al topic adecuado
+
+      try {
+      // Obtener todos los usuarios
+      const users = await userController.getUsers();
+
+      // Suscribirse a los topics de cada usuario
+      users.forEach(user => {
+        mqttClient.subscribe(`users/${user.name}/data`);
+      });
+
+      } catch (error) {
+      console.error('Error al suscribirse a los topics de los usuarios:', error);
+      }
+
     });
 
     mqttClient.on('message', async (topic, message) => {
       try {
         const topicParts = topic.split('/');
-        const username = topicParts[0];  // Obtener el nombre del usuario del topic
+        const username = topicParts[1];  // Obtener el nombre del usuario del topic
         const sensorData = JSON.parse(message.toString());  // Parsear el mensaje a JSON
 
         // Guardar los datos del sensor en la base de datos

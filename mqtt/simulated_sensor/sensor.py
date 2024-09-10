@@ -6,8 +6,8 @@ import requests
 import tempfile
 
 # Nombre del usuario (puedes ajustar esto según tu lógica)
-username = "admin"
-password = "admin"
+username = "Alberto"
+password = "1234"
 
 
 exec_inDocker = True # True si estás intentando esciribr o leer desde un docker en la red de mosquitto

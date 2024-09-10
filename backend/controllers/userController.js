@@ -118,7 +118,16 @@ exports.getAllUsers = async (req, res) => {
     } catch (error) {
         res.status(500).send('Error en el servidor');
     }
-}
+};
+
+exports.getUsers = async () => {
+    try {
+        return await User.find().select('-password -__v -_id');
+    } catch (error) {
+        console.error('Error al obtener usuarios:', error);
+        throw new Error('Error en el servidor');
+    }
+};
 
 // Obtener un usuario a partir de un certificado
 exports.getCertsFromCredentials = async (req, res) => {
