@@ -1,11 +1,16 @@
 // controllers/userController.js
+const { exec } = require('child_process');
+const fs = require('fs');
+const path = require('path');
+const util = require('util');
 const User = require('../models/userModel');
-const Certificado = require('../models/certificadoModel'); // Esquema de CA en MongoDB
+const Certificado = require('../models/certificadoModel');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-const forge = require('node-forge');
 
-// Registrar usuario y generar certificado
+// Promisificar exec para usar async/await
+const execAsync = util.promisify(exec);
+
 exports.registerUser = async (req, res) => {
     const { name, email, password } = req.body;
 
@@ -22,47 +27,45 @@ exports.registerUser = async (req, res) => {
             password,
         });
 
-        // Generar el par de claves para el usuario
-        const keys = forge.pki.rsa.generateKeyPair(2048);
+        // Rutas para almacenar temporalmente los archivos de claves y certificados
+        const certsDir = path.join(__dirname, 'certs');
 
-        // Crear una CSR (Certificate Signing Request)
-        const csr = forge.pki.createCertificationRequest();
-        csr.publicKey = keys.publicKey;
-        csr.setSubject([{ name: 'commonName', value: name }]);
-        csr.sign(keys.privateKey, forge.md.sha256.create()); // Usar SHA-256 para firmar la CSR
+        // Crear el directorio si no existe
+        if (!fs.existsSync(certsDir)) {
+            fs.mkdirSync(certsDir, { recursive: true });
+        }
 
-        // Firmar el CSR para crear el certificado
-        const caData = await Certificado.findOne(); // Recuperar CA desde MongoDB
+        const userKeyPath = path.join(certsDir, `${name}.key`);
+        const userCsrPath = path.join(certsDir, `${name}.csr`);
+        const userCertPath = path.join(certsDir, `${name}.crt`);
+
+        // Generar la clave privada del usuario usando OpenSSL
+        await execAsync(`openssl genpkey -algorithm RSA -out ${userKeyPath}`);
+
+        // Crear CSR para el usuario
+        const subj = `/CN=${name}`;
+        await execAsync(`openssl req -new -key ${userKeyPath} -out ${userCsrPath} -subj "${subj}"`);
+
+        // Recuperar la CA desde la base de datos
+        const caData = await Certificado.findOne();
         if (!caData) {
             return res.status(500).json({ msg: 'CA no encontrada en la base de datos' });
         }
 
-        // Parsear el certificado y la clave de la CA
-        const caCert = forge.pki.certificateFromPem(caData.caCert);
-        const caPrivateKey = forge.pki.privateKeyFromPem(caData.caKey);
+        // Escribir la CA y su clave privada en archivos temporales
+        const caCertPath = path.join(certsDir, 'ca.crt');
+        const caKeyPath = path.join(certsDir, 'ca.key');
+        fs.writeFileSync(caCertPath, caData.caCert);
+        fs.writeFileSync(caKeyPath, caData.caKey);
 
-        // Generar un número de serie único
-        const generateSerialNumber = () => {
-            return Math.floor(Math.random() * 1e16).toString(16).toUpperCase();
-        };
+        // Firmar el CSR del usuario con la CA para generar el certificado del usuario
+        await execAsync(`openssl x509 -req -in ${userCsrPath} -CA ${caCertPath} -CAkey ${caKeyPath} -CAcreateserial -out ${userCertPath} -days 365 -sha256`);
 
-        const cert = forge.pki.createCertificate();
-        cert.serialNumber = generateSerialNumber();
-        cert.publicKey = csr.publicKey;
-        cert.setSubject(csr.subject.attributes);
-        cert.setIssuer(caCert.subject.attributes);
-        cert.validity.notBefore = new Date();
-        cert.validity.notAfter = new Date();
-        cert.validity.notAfter.setFullYear(cert.validity.notBefore.getFullYear() + 100); // Certificado válido por 100 años
+        // Leer el certificado y la clave privada generada en formato PEM
+        const pemCert = fs.readFileSync(userCertPath, 'utf8');
+        const pemKey = fs.readFileSync(userKeyPath, 'utf8');
 
-        // Firmar el certificado con la clave privada de la CA usando SHA-256
-        cert.sign(caPrivateKey, forge.md.sha256.create());
-
-        // Convertir el certificado y la clave privada del usuario a formato PEM
-        const pemCert = forge.pki.certificateToPem(cert);
-        const pemKey = forge.pki.privateKeyToPem(keys.privateKey);
-
-        // Almacenar el certificado y clave privada en el usuario en MongoDB
+        // Almacenar el certificado y la clave privada en MongoDB
         user.certificate = pemCert;
         user.privateKey = pemKey;
 
@@ -79,7 +82,6 @@ exports.registerUser = async (req, res) => {
         res.status(500).send('Error en el servidor');
     }
 };
-
 
 // Iniciar sesión
 exports.loginUser = async (req, res) => {

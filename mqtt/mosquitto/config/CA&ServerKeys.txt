@@ -3,7 +3,7 @@ openssl genpkey -algorithm RSA -out ca.key
 
 # Generar el certificado autofirmado de la CA con SHA-256
 openssl req -x509 -new -nodes -key ca.key -sha256 -days 36500 \
-    -subj "/C=ES/ST=Salamanca/L=Salamanca/O=AIr Institute/OU=Informático/CN=server" \
+    -subj "/C=ES/ST=Salamanca/L=Salamanca/O=AIr Institute/OU=Informático/CN=mosquitto" \
     -out ca.crt
 
 # Crear un archivo de configuración para incluir SAN
@@ -23,7 +23,7 @@ organizationName_default = AIr Institute
 organizationalUnitName = Organizational Unit Name (eg, section)
 organizationalUnitName_default = Informático
 commonName = Common Name (eg, fully qualified host name)
-commonName_default = server
+commonName_default = mosquitto
 commonName_max = 64
 
 [req_ext]
@@ -31,14 +31,15 @@ subjectAltName = @alt_names
 
 [alt_names]
 DNS.1 = localhost
-DNS.2 = mosquitto" > ../openssl-san.cnf
+DNS.2 = mosquitto" > openssl-san.cnf
 
 # Generar la clave privada para el servidor
 openssl genpkey -algorithm RSA -out server.key
 
 # Generar la solicitud de firma de certificado (CSR) para el servidor
-openssl req -new -key server.key -out server.csr -config ../openssl-san.cnf
+openssl req -new -key server.key -out server.csr -config openssl-san.cnf
 
 # Firmar la CSR del servidor con la CA para crear el certificado del servidor
 openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial \
-    -out server.crt -days 36500 -sha256 -extfile ../openssl-san.cnf -extensions req_ext
+    -out server.crt -days 36500 -sha256 -extfile openssl-san.cnf -extensions req_ext
+

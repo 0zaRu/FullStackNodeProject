@@ -10,7 +10,7 @@ username = "Alberto"
 password = "1234"
 
 
-exec_inDocker = True # True si estás intentando esciribr o leer desde un docker en la red de mosquitto
+exec_inDocker = False # True si estás intentando esciribr o leer desde un docker en la red de mosquitto
 
 backend_local = "http://localhost:3000"
 backend_docker = "http://backend:3000"
@@ -19,8 +19,7 @@ backend_docker = "http://backend:3000"
 broker_local = "localhost"
 broker_docker = "mosquitto"
 port = 8883
-# topic = f"users/{username}/data"
-topic = "users/admin/data"
+topic = f"users/{username}/data"
 
 # Obtener certificados desde el endpoint
 def get_certificates(username, password):
@@ -44,6 +43,7 @@ def get_certificates(username, password):
 
         if "certificate" in data and "privateKey" in data and "caCert" in dataCA:
             return dataCA["caCert"], data["certificate"], data["privateKey"]
+            # return dataCA["caCert"], dataCA["serverCert"], dataCA["serverKey"]
         else:
             raise ValueError("Respuesta incompleta del servidor")
 
@@ -97,3 +97,4 @@ while True:
     client.publish(topic, payload)
     print(f"Publicado en {topic}: {payload}", flush=True)
     time.sleep(60)  # Publica cada 2 segundos
+

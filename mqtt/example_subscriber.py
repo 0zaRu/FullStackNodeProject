@@ -1,30 +1,93 @@
 import paho.mqtt.client as mqtt
+import json
+import requests
+import tempfile
 
-# Función de callback que se ejecuta cuando se recibe un mensaje
+# Nombre del usuario (puedes ajustar esto según tu lógica)
+username = "Alberto"
+password = "1234"
+
+exec_inDocker = False  # True si estás intentando escribir o leer desde un Docker en la red de Mosquitto
+
+backend_local = "http://localhost:3000"
+backend_docker = "http://backend:3000"
+
+# Configuración del broker MQTT
+broker_local = "localhost"
+broker_docker = "mosquitto"
+port = 8883
+topic = f"users/{username}/data"
+
+# Obtener certificados desde el endpoint
+def get_certificates(username, password):
+    url = f"{backend_docker if exec_inDocker else backend_local}/get-certs-from-credentials"
+    payload = {
+        "name": username,
+        "password": password
+    }
+
+    urlCA = f"{backend_docker if exec_inDocker else backend_local}/get-ca"
+
+    try:
+        response = requests.get(url, json=payload)
+        response.raise_for_status()  # Lanza una excepción si la solicitud falla
+
+        responseCA = requests.get(urlCA)
+        responseCA.raise_for_status() 
+
+        data = response.json()
+        dataCA = responseCA.json()
+
+        if "certificate" in data and "privateKey" in data and "caCert" in dataCA:
+            return dataCA["caCert"], data["certificate"], data["privateKey"]
+        else:
+            raise ValueError("Respuesta incompleta del servidor")
+
+    except requests.RequestException as e:
+        print(f"Error al obtener certificados: {e}")
+        raise
+
+# Crear archivos temporales para certificados
+def create_temp_file(content):
+    with tempfile.NamedTemporaryFile(delete=False, mode='w') as temp_file:
+        temp_file.write(content)
+        return temp_file.name
+
+# Función de callback para recibir mensajes
 def on_message(client, userdata, message):
-    print(f"Received message on topic {message.topic}: {message.payload.decode('utf-8')}")
+    payload = message.payload.decode('utf-8')
+    print(f"Mensaje recibido en {message.topic}: {payload}")
 
-# Configuración de TLS
-ca_cert = "./mqtt/simulated_sensor/certs/ca.crt"
-client_cert = "./mqtt/mosquitto/config/certs/server.crt"
-client_key = "./mqtt/mosquitto/config/certs/server.key"
+# Obtener los certificados desde el endpoint
+try:
+    ca_cert, client_cert, client_key = get_certificates(username, password)
+except Exception as e:
+    print(f"Error al obtener certificados: {e}")
+    exit(1)
 
 # Crear cliente MQTT
 client = mqtt.Client()
 
-# Configurar TLS
-client.tls_set(ca_cert, certfile=client_cert, keyfile=client_key)
-client.tls_insecure_set(True)  # Configurar como False en producción
+# Crear archivos temporales con los certificados
+ca_cert_path = create_temp_file(ca_cert)
+client_cert_path = create_temp_file(client_cert)
+client_key_path = create_temp_file(client_key)
 
-# Asignar la función de callback
+# Configurar TLS usando los archivos temporales
+client.tls_set(ca_cert_path, certfile=client_cert_path, keyfile=client_key_path)
+
+# Configurar el callback para recibir mensajes
 client.on_message = on_message
 
-# Conectar al broker (en este caso, localhost en el puerto 1883)
-# client.connect("localhost", 1883, 60)
-client.connect("localhost", 8883, 60)
+# Conectar al broker
+try:
+    client.connect(broker_docker if exec_inDocker else broker_local, port)
+except Exception as e:
+    print(f"Error al conectar al broker: {e}")
+    exit(1)
 
-# Suscribirse al tema deseado
-client.subscribe("usr/simulated_sensor/data")
+# Suscribirse al topic
+client.subscribe(topic)
 
-# Iniciar el loop para mantener la conexión y procesar mensajes
+# Mantener el cliente en espera de mensajes
 client.loop_forever()

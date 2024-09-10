@@ -4,6 +4,8 @@ FROM node:18
 # Crear y establecer el directorio de trabajo
 WORKDIR /usr/src/app
 
+RUN mkdir -p /usr/src/app/tmp
+
 # Copiar package.json y package-lock.json
 COPY ./backend/package*.json ./
 
