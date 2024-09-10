@@ -1,5 +1,4 @@
-user admin
-topic readwrite users/admin/data
+pattern write users/%u/data
 
-user Alberto
-topic readwrite users/Alberto/data
+user mosquitto
+topic read users/+/data

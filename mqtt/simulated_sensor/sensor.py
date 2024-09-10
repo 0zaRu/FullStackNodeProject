@@ -6,11 +6,11 @@ import requests
 import tempfile
 
 # Nombre del usuario (puedes ajustar esto según tu lógica)
-username = "Alberto"
-password = "1234"
+username = "admin"
+password = "admin"
 
 
-exec_inDocker = False # True si estás intentando esciribr o leer desde un docker en la red de mosquitto
+exec_inDocker = True # True si estás intentando esciribr o leer desde un docker en la red de mosquitto
 
 backend_local = "http://localhost:3000"
 backend_docker = "http://backend:3000"
