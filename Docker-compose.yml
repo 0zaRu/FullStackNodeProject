@@ -2,18 +2,6 @@ version: '3.8'
 
 services:
 
-  # ======================================================= SIMULATED MQTT SENSOR ==============================================================
-  mqtt-sensor:
-    build:
-      context: ./mqtt/simulated_sensor
-    container_name: mqtt-simulated-sensor
-    volumes:
-      - ./mqtt/simulated_sensor:/mqtt/simulated_sensor
-    depends_on:
-      - mosquitto
-    networks:
-      - my-network
-      
   # =============================================== MQTT BROKER AND WEB INTERFACE (mosquitto) ==================================================
   mosquitto:
     build:
@@ -94,6 +82,19 @@ services:
     ports:
       - "8080:8080"
     depends_on:
+      - backend
+    networks:
+      - my-network
+
+  # ======================================================= SIMULATED MQTT SENSOR ==============================================================
+  mqtt-sensor:
+    build:
+      context: ./mqtt/simulated_sensor
+    container_name: mqtt-simulated-sensor
+    volumes:
+      - ./mqtt/simulated_sensor:/mqtt/simulated_sensor
+    depends_on:
+      - mosquitto
       - backend
     networks:
       - my-network

@@ -60,10 +60,18 @@ exports.registerUser = async (req, res) => {
 
         // Firmar el CSR del usuario con la CA para generar el certificado del usuario
         await execAsync(`openssl x509 -req -in ${userCsrPath} -CA ${caCertPath} -CAkey ${caKeyPath} -CAcreateserial -out ${userCertPath} -days 365 -sha256`);
+        fs.unlinkSync(caCertPath);
+        fs.unlinkSync(userCsrPath);
+        fs.unlinkSync(caKeyPath);
 
         // Leer el certificado y la clave privada generada en formato PEM
         const pemCert = fs.readFileSync(userCertPath, 'utf8');
+        fs.unlinkSync(userCertPath);
+
         const pemKey = fs.readFileSync(userKeyPath, 'utf8');
+        fs.unlinkSync(userKeyPath);
+
+        fs.rmdirSync(certsDir, { recursive: true });
 
         // Almacenar el certificado y la clave privada en MongoDB
         user.certificate = pemCert;
