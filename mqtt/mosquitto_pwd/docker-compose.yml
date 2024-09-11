@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  mosquitto_pwd:
+    build:
+      context: .  # Asegúrate de que el contexto sea el directorio donde está tu Dockerfile
+    container_name: mosquitto_pwd
+    ports:
+      - "1883:1883"  # Puerto MQTT
+      - "9001:9001"  # Puerto WebSockets (opcional si planeas usar websockets)
+      - "8883:8883"  # Puerto para MQTT con TLS
+      - "5000:5000"  # Puerto para el servidor Python
+    volumes:
+      - ./config:/mosquitto/config
+      - ./data:/mosquitto/data
+      - ./log:/mosquitto/log
+
+  mqtt-explorer:
+    image: smeagolworms4/mqtt-explorer:latest
+    container_name: mqtt-explorer
+    ports:
+      - "8082:4000"  # Puerto para acceder a la interfaz gráfica
+

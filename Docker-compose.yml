@@ -3,18 +3,34 @@ version: '3.8'
 services:
 
   # =============================================== MQTT BROKER AND WEB INTERFACE (mosquitto) ==================================================
-  mosquitto:
+  # mosquitto: # Este es sin usuario contraseña, con certificados TLS
+  #   build:
+  #     context: ./mqtt/mosquitto
+  #   container_name: mosquitto
+  #   ports:
+  #     - "1883:1883"  # Puerto MQTT
+  #     - "9001:9001"  # Puerto WebSockets (opcional si planeas usar websockets)
+  #     - "8883:8883"  # Puerto para MQTT con TLS
+  #   volumes:
+  #     - ./mqtt/mosquitto/config:/mosquitto/config
+  #     - ./mqtt/mosquitto/data:/mosquitto/data
+  #     - ./mqtt/mosquitto/log:/mosquitto/log
+  #   networks:
+  #     - my-network
+
+  mosquitto: # Este es con usuario contraseña, usando carpeta mosquitto_pwd
     build:
-      context: ./mqtt/mosquitto
-    container_name: mosquitto
+      context: ./mqtt/mosquitto_pwd
+    container_name: mosquitto_pwd
     ports:
       - "1883:1883"  # Puerto MQTT
       - "9001:9001"  # Puerto WebSockets (opcional si planeas usar websockets)
       - "8883:8883"  # Puerto para MQTT con TLS
+      - "5000:5000"  # Puerto para el servidor Python en mosquitto_pwd
     volumes:
-      - ./mqtt/mosquitto/config:/mosquitto/config
-      - ./mqtt/mosquitto/data:/mosquitto/data
-      - ./mqtt/mosquitto/log:/mosquitto/log
+      - ./mqtt/mosquitto_pwd/data:/mosquitto/data
+      - ./mqtt/mosquitto_pwd/config:/mosquitto/config
+      - ./mqtt/mosquitto_pwd/log:/mosquitto/log
     networks:
       - my-network
 
@@ -94,7 +110,6 @@ services:
     volumes:
       - ./mqtt/simulated_sensor:/mqtt/simulated_sensor
     depends_on:
-      - mosquitto
       - backend
     networks:
       - my-network

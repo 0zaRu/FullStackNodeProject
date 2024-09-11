@@ -9,30 +9,48 @@ const sensorDataController = require('../controllers/sensorDataController');
 const connectMQTT = async () => {
   // console.log('Eliminada función de conexióna mqtt (config/mqttClient.js)');
   // return;
-  try {
-    // Recuperar la CA y las claves del servidor desde la base de datos
-    const { ca } = await getKeys(); // Usar la función getKeys para obtener la CA
-    if (!ca) {
-      throw new Error('CA no encontrada en la base de datos');
-    }
 
-    
-    // Configuración para conectarse al broker MQTT con TLS
-    const options = {
-      host: process.env.MQTT_HOST || 'mosquitto',
-      port: process.env.MQTT_PORT || 8883,
-      protocol: 'mqtts',
-      ca: [ca.caCert], // Enviar el CA como un array de certificados
-      cert: ca.serverCert,
-      key: ca.serverKey,
-      rejectUnauthorized: true,  // Verificar la validez del certificado
-      checkServerIdentity: (host, cert) => {
-        // Validar el commonName del certificado del servidor
-        if (cert && cert.subject && cert.subject.CN !== 'mosquitto') {
-          throw new Error('El certificado del servidor no es válido.');
-        }
+  try {
+    let options = {};
+
+    if (process.env.TYPE_CERT === 'CERT'){
+      console.log('Conectando al broker MQTT con certificados');
+
+      // Recuperar la CA y las claves del servidor desde la base de datos
+      const { ca } = await getKeys(); // Usar la función getKeys para obtener la CA
+      if (!ca) {
+        throw new Error('CA no encontrada en la base de datos');
       }
-    };
+
+      // Configuración para conectarse al broker MQTT con TLS
+      options = {
+        host: process.env.MQTT_HOST || 'mosquitto',
+        port: process.env.MQTT_PORT || 8883,
+        protocol: 'mqtts',
+        ca: [ca.caCert], // Enviar el CA como un array de certificados
+        cert: ca.serverCert,
+        key: ca.serverKey,
+        rejectUnauthorized: true,  // Verificar la validez del certificado
+        checkServerIdentity: (host, cert) => {
+          // Validar el commonName del certificado del servidor
+          if (cert && cert.subject && cert.subject.CN !== 'mosquitto') {
+            throw new Error('El certificado del servidor no es válido.');
+          }
+        }
+      };
+    }else if (process.env.TYPE_CERT === 'PWD'){
+      console.log('Conectando al broker MQTT con usuario y contraseña');
+
+      options = {
+        host: process.env.MQTT_HOST || 'mosquitto',
+        port: process.env.MQTT_PORT || 1883,
+        protocol: 'mqtt',
+        
+        // Autenticación con usuario y contraseña
+        username: 'mosquitto',  // Usuario MQTT
+        password: process.env.MQTT_SERVER_PWD,  // Contraseña MQTT
+      };
+    }
 
     let mqttClient = null;
 

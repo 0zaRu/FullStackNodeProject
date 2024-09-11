@@ -7,6 +7,7 @@ const User = require('../models/userModel');
 const Certificado = require('../models/certificadoModel');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const axios = require('axios');
 
 // Promisificar exec para usar async/await
 const execAsync = util.promisify(exec);
@@ -26,7 +27,8 @@ exports.registerUser = async (req, res) => {
             email,
             password,
         });
-
+        
+        //=======================================================  CERTIFICADOS MQTT  =========================================================================
         // Rutas para almacenar temporalmente los archivos de claves y certificados
         const certsDir = path.join(__dirname, 'certs');
 
@@ -77,8 +79,20 @@ exports.registerUser = async (req, res) => {
         user.certificate = pemCert;
         user.privateKey = pemKey;
 
+        //===================================================================================================================================================
+        
         await user.save();
 
+        //=======================================================  CONTRASEÑA MQTT  =========================================================================
+        
+        // Hacer una solicitud HTTP para agregar el usuario al servidor de Mosquitto
+        await axios.post('http://mosquitto_pwd:5000/add-user', {
+            username: name,
+            password: password
+        });
+        
+        //===================================================================================================================================================
+        
         // Crear y enviar JWT
         const payload = { userid: user.id };
         const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1m' });

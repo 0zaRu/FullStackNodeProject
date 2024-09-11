@@ -1,0 +1,4 @@
+pattern write users/%u/data
+
+user mosquitto
+topic read users/+/data

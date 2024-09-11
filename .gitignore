@@ -1,3 +1,4 @@
 **/mongodb_data/
 **/mosquitto/config/certs
+**/mosquitto_pwd/config/passwords
 **/simulated_sensor/certs/*

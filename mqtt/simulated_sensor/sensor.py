@@ -6,10 +6,10 @@ import requests
 import tempfile
 
 # Nombre del usuario (puedes ajustar esto según tu lógica)
-username = "Alberto"
+username = "pruebita"
 password = "1234"
 
-
+cert_or_pwd = "PWD" # "CERT | PWD"
 exec_inDocker = True # True si estás intentando esciribr o leer desde un docker en la red de mosquitto
 
 backend_local = "http://localhost:3000"
@@ -51,6 +51,12 @@ def get_certificates(username, password):
         print(f"Error al obtener certificados: {e}")
         raise
 
+# Crear archivos temporales para certificados
+def create_temp_file(content):
+    with tempfile.NamedTemporaryFile(delete=False, mode='w') as temp_file:
+        temp_file.write(content)
+        return temp_file.name
+
 # Función para generar datos simulados
 def generate_sensor_data():
     return {
@@ -59,29 +65,32 @@ def generate_sensor_data():
     }
 
 
-# Obtener los certificados desde el endpoint
-try:
-    ca_cert, client_cert, client_key = get_certificates(username, password)
-except Exception as e:
-    print(f"Error al obtener certificados: {e}")
-    exit(1)
+if cert_or_pwd == "CERT":
+    # Obtener los certificados desde el endpoint
+    try:
+        ca_cert, client_cert, client_key = get_certificates(username, password)
+    except Exception as e:
+        print(f"Error al obtener certificados: {e}")
+        exit(1)
 
-# Crear archivos temporales para certificados
-def create_temp_file(content):
-    with tempfile.NamedTemporaryFile(delete=False, mode='w') as temp_file:
-        temp_file.write(content)
-        return temp_file.name
+    # Crear cliente MQTT
+    client = mqtt.Client()
 
-# Crear cliente MQTT
-client = mqtt.Client()
+    # Crear archivos temporales con los certificados
+    ca_cert_path = create_temp_file(ca_cert)
+    client_cert_path = create_temp_file(client_cert)
+    client_key_path = create_temp_file(client_key)
 
-# Crear archivos temporales con los certificados
-ca_cert_path = create_temp_file(ca_cert)
-client_cert_path = create_temp_file(client_cert)
-client_key_path = create_temp_file(client_key)
+    # Configurar TLS usando los archivos temporales
+    client.tls_set(ca_cert_path, certfile=client_cert_path, keyfile=client_key_path)
 
-# Configurar TLS usando los archivos temporales
-client.tls_set(ca_cert_path, certfile=client_cert_path, keyfile=client_key_path)
+elif cert_or_pwd == "PWD":
+    # Crear cliente MQTT
+    client = mqtt.Client()
+
+    # Configurar autenticación con usuario y contraseña
+    client.username_pw_set(username, password)
+
 
 # Conectar al broker
 try:
@@ -96,5 +105,4 @@ while True:
     payload = json.dumps(data)
     client.publish(topic, payload)
     print(f"Publicado en {topic}: {payload}", flush=True)
-    time.sleep(60)  # Publica cada 2 segundos
-
+    time.sleep(60)  # Publica cada 60 segundos
