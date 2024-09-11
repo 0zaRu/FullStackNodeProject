@@ -86,10 +86,12 @@ exports.registerUser = async (req, res) => {
         //=======================================================  CONTRASEÑA MQTT  =========================================================================
         
         // Hacer una solicitud HTTP para agregar el usuario al servidor de Mosquitto
-        await axios.post('http://mosquitto_pwd:5000/add-user', {
-            username: name,
-            password: password
-        });
+        if (process.env.TYPE_CERT === 'PWD'){
+            await axios.post('http://mosquitto_pwd:5000/add-user', {
+                username: name,
+                password: password
+            });
+        }
         
         //===================================================================================================================================================
         
